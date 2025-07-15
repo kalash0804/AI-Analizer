@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind - AI Document Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+        .file-upload:hover {
+            border-color: #4f46e5;
+        }
+        .file-upload.dragover {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+        .typing-animation::after {
+            content: "|";
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-indigo-700 mb-2">DocuMind</h1>
+            <p class="text-gray-600 text-lg">Upload your documents and let AI extract key insights</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Upload Section -->
+            <div class="w-full lg:w-1/2 bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Upload Document</h2>
+                
+                <div id="upload-container" class="file-upload rounded-lg p-8 text-center cursor-pointer mb-6">
+                    <div class="flex flex-col items-center justify-center">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-indigo-500 mb-3"></i>
+                        <p class="text-gray-600 mb-1">Drag & drop your document here</p>
+                        <p class="text-gray-500 text-sm mb-3">or</p>
+                        <button id="browse-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition">
+                            Browse Files
+                        </button>
+                    </div>
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.doc,.docx,.txt,.rtf">
+                </div>
+
+                <div id="file-info" class="hidden mb-6 p-4 bg-indigo-50 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center">
+                            <i class="fas fa-file-alt text-indigo-600 mr-3"></i>
+                            <div>
+                                <p id="file-name" class="font-medium text-gray-800"></p>
+                                <p id="file-size" class="text-sm text-gray-500"></p>
+                            </div>
+                        </div>
+                        <button id="remove-file" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label for="prompt" class="block text-gray-700 font-medium mb-2">What would you like to know?</label>
+                    <select id="quick-prompts" class="w-full p-2 border border-gray-300 rounded-md mb-2">
+                        <option value="">Select a quick prompt...</option>
+                        <option value="Summarize the key points of this document">Summarize key points</option>
+                        <option value="What are the main arguments in this document?">Main arguments</option>
+                        <option value="Extract important statistics and data from this document">Important statistics</option>
+                        <option value="Identify the key people mentioned in this document">Key people</option>
+                    </select>
+                    <textarea id="prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Or type your own prompt (e.g. 'Give me the key points of this document')"></textarea>
+                </div>
+
+                <button id="analyze-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-md font-medium transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <span id="analyze-text">Analyze Document</span>
+                    <span id="analyze-spinner" class="hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div class="w-full lg:w-1/2 bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-800">Analysis Results</h2>
+                    <button id="copy-btn" class="text-indigo-600 hover:text-indigo-800 hidden" title="Copy to clipboard">
+                        <i class="far fa-copy"></i>
+                    </button>
+                </div>
+
+                <div id="results-placeholder" class="text-center py-12 px-4 bg-gray-50 rounded-lg">
+                    <i class="fas fa-lightbulb text-4xl text-indigo-300 mb-4"></i>
+                    <p class="text-gray-500">Upload a document and enter a prompt to get AI-powered insights.</p>
+                </div>
+
+                <div id="results-container" class="hidden">
+                    <div class="mb-4">
+                        <h3 class="font-medium text-gray-700 mb-1">Your Prompt:</h3>
+                        <p id="user-prompt" class="bg-gray-100 p-3 rounded-md"></p>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-700 mb-1">AI Response:</h3>
+                        <div id="ai-response" class="bg-indigo-50 p-4 rounded-md whitespace-pre-wrap"></div>
+                    </div>
+                </div>
+
+                <div id="loading-container" class="hidden text-center py-12">
+                    <div class="inline-block">
+                        <i class="fas fa-brain text-indigo-500 text-4xl mb-4"></i>
+                        <p class="text-gray-600 mb-2">Analyzing your document...</p>
+                        <div class="typing-animation text-indigo-500">Thinking</div>
+                    </div>
+                </div>
+
+                <div id="error-container" class="hidden bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mt-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span id="error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="mt-16">
+            <h2 class="text-2xl font-semibold text-center text-gray-800 mb-8">How It Works</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+                    <div class="text-indigo-500 mb-4">
+                        <i class="fas fa-upload text-3xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-lg mb-2">Upload Document</h3>
+                    <p class="text-gray-600">Upload PDFs, Word docs, or text files. Our AI supports multiple formats.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+                    <div class="text-indigo-500 mb-4">
+                        <i class="fas fa-comment-dots text-3xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-lg mb-2">Ask Questions</h3>
+                    <p class="text-gray-600">Use pre-made prompts or type your own questions about the document.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+                    <div class="text-indigo-500 mb-4">
+                        <i class="fas fa-lightbulb text-3xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-lg mb-2">Get Insights</h3>
+                    <p class="text-gray-600">Receive clear, concise answers extracted directly from your document.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- 
+    <footer class="bg-gray-100 mt-16 py-8">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>© 2023 DocuMind - AI Document Analysis Tool</p>
+            <p class="mt-2 text-sm">This is a demo interface. To implement actual AI integration, you would need to connect to an API like OpenAI.</p>
+        </div>
+    </footer> -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const uploadContainer = document.getElementById('upload-container');
+            const fileInput = document.getElementById('file-input');
+            const browseBtn = document.getElementById('browse-btn');
+            const fileInfo = document.getElementById('file-info');
+            const fileName = document.getElementById('file-name');
+            const fileSize = document.getElementById('file-size');
+            const removeFile = document.getElementById('remove-file');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const promptInput = document.getElementById('prompt');
+            const quickPrompts = document.getElementById('quick-prompts');
+            const resultsPlaceholder = document.getElementById('results-placeholder');
+            const resultsContainer = document.getElementById('results-container');
+            const userPrompt = document.getElementById('user-prompt');
+            const aiResponse = document.getElementById('ai-response');
+            const loadingContainer = document.getElementById('loading-container');
+            const errorContainer = document.getElementById('error-container');
+            const errorMessage = document.getElementById('error-message');
+            const copyBtn = document.getElementById('copy-btn');
+            const analyzeText = document.getElementById('analyze-text');
+            const analyzeSpinner = document.getElementById('analyze-spinner');
+
+            // Variables
+            let selectedFile = null;
+
+            // Event Listeners
+            browseBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            uploadContainer.addEventListener('dragover', handleDragOver);
+            uploadContainer.addEventListener('dragleave', handleDragLeave);
+            uploadContainer.addEventListener('drop', handleDrop);
+            removeFile.addEventListener('click', resetFileInput);
+            analyzeBtn.addEventListener('click', analyzeDocument);
+            quickPrompts.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    promptInput.value = e.target.value;
+                    checkAnalyzeButton();
+                }
+            });
+            promptInput.addEventListener('input', checkAnalyzeButton);
+            copyBtn.addEventListener('click', copyToClipboard);
+
+            // Functions
+            function handleFileSelect(e) {
+                const file = e.target.files[0] || (e.dataTransfer && e.dataTransfer.files[0]);
+                if (file) {
+                    processSelectedFile(file);
+                }
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadContainer.classList.add('dragover');
+            }
+
+            function handleDragLeave(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadContainer.classList.remove('dragover');
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadContainer.classList.remove('dragover');
+                handleFileSelect(e);
+            }
+
+            function processSelectedFile(file) {
+                // Check file type
+                const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'application/rtf'];
+                if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|txt|rtf)$/i)) {
+                    showError('Please upload a valid document (PDF, Word, TXT, RTF)');
+                    return;
+                }
+
+                // Check file size (5MB limit)
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('File size should be less than 5MB');
+                    return;
+                }
+
+                selectedFile = file;
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.classList.remove('hidden');
+                checkAnalyzeButton();
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            function resetFileInput() {
+                selectedFile = null;
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                checkAnalyzeButton();
+            }
+
+            function checkAnalyzeButton() {
+                analyzeBtn.disabled = !(selectedFile && promptInput.value.trim());
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    errorContainer.classList.add('hidden');
+                }, 5000);
+            }
+
+            function analyzeDocument() {
+                if (!selectedFile || !promptInput.value.trim()) return;
+
+                // Show loading state
+                analyzeText.textContent = "Analyzing...";
+                analyzeSpinner.classList.remove('hidden');
+                analyzeBtn.disabled = true;
+                resultsPlaceholder.classList.add('hidden');
+                resultsContainer.classList.add('hidden');
+                loadingContainer.classList.remove('hidden');
+                errorContainer.classList.add('hidden');
+                copyBtn.classList.add('hidden');
+
+                // In a real implementation, you would send the file and prompt to your backend/AI API here
+                // For this demo, we'll simulate an API response after a delay
+                setTimeout(() => {
+                    // Simulate API response
+                    const userQuestion = promptInput.value.trim();
+                    const simulatedResponse = simulateAIResponse(userQuestion);
+
+                    // Display results
+                    userPrompt.textContent = userQuestion;
+                    aiResponse.textContent = simulatedResponse;
+                    
+                    // Update UI
+                    loadingContainer.classList.add('hidden');
+                    resultsContainer.classList.remove('hidden');
+                    copyBtn.classList.remove('hidden');
+                    analyzeText.textContent = "Analyze Document";
+                    analyzeSpinner.classList.add('hidden');
+                    analyzeBtn.disabled = false;
+                    
+                    // Scroll to results
+                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 3000);
+            }
+
+            function simulateAIResponse(prompt) {
+                // This is a mock response - in a real app, you'd call an actual AI API
+                const mockResponses = {
+                    "Summarize the key points of this document": "1. The document discusses the importance of digital transformation in modern businesses.\n2. Key challenges include legacy systems and employee resistance to change.\n3. Successful strategies involve leadership commitment and phased implementation.\n4. Case studies show average 30% efficiency gains after digital transformation.",
+                    "What are the main arguments in this document?": "The main arguments presented are:\n\n- Digital transformation is no longer optional but essential for business survival\n- The ROI of digital initiatives outweighs the initial costs\n- Employee training is critical for successful implementation\n- Data security must be prioritized throughout the transformation process",
+                    "Extract important statistics and data from this document": "Key statistics from the document:\n\n- 72% of companies report improved customer satisfaction after digital transformation\n- Digital-first companies grow revenue 2.5x faster than peers\n- 58% of employees need reskilling to work with new digital tools\n- Average implementation time is 12-18 months for mid-sized companies",
+                    "Identify the key people mentioned in this document": "Key individuals mentioned:\n\n- John Smith (CEO of TechForward) - case study subject\n- Dr. Emily Chen - author of Digital Transformation Framework\n- Michael Johnson - cited as industry analyst from Gartner\n- Sarah Williams - head of implementation at GlobalCorp"
+                };
+                
+                return mockResponses[prompt] || 
+                    `Here are the key points from the document related to "${prompt}":\n\n1. The document emphasizes the growing importance of AI in document analysis.\n2. Key benefits include time savings (up to 80% reduction in manual review) and improved accuracy.\n3. Implementation requires clean data and clear objectives.\n4. The future points toward more contextual understanding by AI systems.\n\nWould you like me to elaborate on any specific aspect?`;
+            }
+
+            function copyToClipboard() {
+                const textToCopy = `Prompt: ${userPrompt.textContent}\n\nResponse: ${aiResponse.textContent}`;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalIcon = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalIcon;
+                    }, 2000);
+                }).catch(err => {
+                    showError('Failed to copy text: ' + err);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
